@@ -6,25 +6,6 @@ localStorage, é tudo compartilhado entre quem acessa.
 
 Tá no ar aqui: https://lohany-passos-agenda.vercel.app
 
-## Rodando na sua máquina
-
-```bash
-npm install
-npm run dev
-```
-
-Abre em http://localhost:5173 (ou a porta que o terminal mostrar).
-
-Só que antes disso você precisa de um `.env` na raiz com as chaves do
-Supabase (copia o `.env.example` e preenche):
-
-```
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-```
-
-Sem isso o app builda mas nenhuma tela que depende de dados vai funcionar.
-
 ## O banco
 
 O schema inteiro (tabelas, RLS, funções de disponibilidade e criação de

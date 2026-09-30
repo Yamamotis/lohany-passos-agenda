@@ -1,3 +1,6 @@
+// Barra de navegação do topo. Os links mudam de acordo com o papel do
+// usuário logado; no celular, o cliente usa a navegação por abas (BottomNav)
+// em vez do menu hambúrguer, então ele é escondido aqui.
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -35,11 +38,13 @@ export default function Navbar() {
   }
 
   const links = user ? ROLE_LINKS[user.role] ?? [] : []
+  // O cliente já tem a barra de abas no rodapé (mobile), então não precisa do hambúrguer.
   const showMobileMenu = user?.role !== 'client'
 
   return (
     <header className="border-b border-stone-200 bg-white">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+        {/* O logo leva para a "home" de cada papel (painel, agenda ou tela de agendar). */}
         <Link to={getHomeRoute(user)} className="text-lg font-semibold text-rose-600" onClick={handleNavigate}>
           Salão Agenda
         </Link>
@@ -55,6 +60,7 @@ export default function Navbar() {
           </button>
         )}
 
+        {/* Navegação para telas médias/grandes (sempre visível a partir do breakpoint sm). */}
         <nav className="hidden items-center gap-4 sm:flex">
           {links.map((link) => (
             <Link key={link.to} to={link.to} className="text-sm text-stone-600 hover:text-rose-600">
@@ -84,6 +90,7 @@ export default function Navbar() {
         </nav>
       </div>
 
+      {/* Menu suspenso do celular (só para quem não é cliente). */}
       {showMobileMenu && menuOpen && (
         <nav className="flex flex-col gap-1 border-t border-stone-200 px-4 py-3 sm:hidden">
           {links.map((link) => (

@@ -1,3 +1,5 @@
+// CRUD de serviços do salão, com proteção contra exclusão de um serviço
+// que ainda tenha agendamentos ativos vinculados.
 import { useEffect, useState } from 'react'
 import { createService, deleteService, listServices, updateService } from '../../lib/api/services'
 import { hasScheduledAppointmentsForService } from '../../lib/api/appointments'
@@ -9,6 +11,7 @@ const EMPTY_FORM = { name: '', durationMinutes: '', price: '' }
 export default function Services() {
   const { showToast } = useToast()
   const [services, setServices] = useState([])
+  // editingId: null (nenhum formulário aberto) | 'new' (criando) | id do serviço em edição.
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
 
@@ -59,6 +62,7 @@ export default function Services() {
   }
 
   async function handleDelete(id) {
+    // Não deixa excluir um serviço que ainda tem agendamento ativo apontando para ele.
     if (await hasScheduledAppointmentsForService(id)) {
       showToast('Não é possível excluir: há agendamentos ativos com este serviço.', 'error')
       return

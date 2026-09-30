@@ -1,3 +1,5 @@
+// CRUD de profissionais: dados básicos, serviços realizados, expediente por
+// dia da semana (com intervalo de almoço opcional) e folgas pontuais.
 import { useEffect, useState } from 'react'
 import {
   createProfessional,
@@ -22,6 +24,7 @@ const WEEKDAYS = [
 
 const DEFAULT_DAY_HOURS = { start: '09:00', end: '18:00' }
 
+// Formulário vazio: todos os dias começam sem expediente definido (null).
 function emptyForm() {
   return {
     name: '',
@@ -81,6 +84,7 @@ export default function Professionals() {
     }))
   }
 
+  // Liga/desliga o expediente de um dia (null = não trabalha nesse dia).
   function toggleDay(dayKey) {
     setForm((prev) => ({
       ...prev,
@@ -101,6 +105,8 @@ export default function Professionals() {
     }))
   }
 
+  // Liga/desliga o intervalo de almoço de um dia, removendo os campos
+  // breakStart/breakEnd por completo quando desligado (em vez de zerá-los).
   function toggleBreak(dayKey) {
     setForm((prev) => {
       const hours = prev.workingHours[dayKey]
@@ -140,6 +146,7 @@ export default function Professionals() {
   }
 
   async function handleDelete(id) {
+    // Não deixa excluir um profissional que ainda tem agendamento ativo.
     if (await hasScheduledAppointmentsForProfessional(id)) {
       showToast('Não é possível excluir: há agendamentos ativos com este profissional.', 'error')
       return
@@ -215,7 +222,11 @@ export default function Professionals() {
                             className="rounded-lg border border-stone-300 px-2 py-1 text-sm"
                           />
                           <label className="flex items-center gap-1 text-xs text-stone-600">
-                            <input type="checkbox" checked={!!hours.breakStart} onChange={() => toggleBreak(day.key)} />
+                            <input
+                              type="checkbox"
+                              checked={!!hours.breakStart}
+                              onChange={() => toggleBreak(day.key)}
+                            />
                             Intervalo
                           </label>
                           {hours.breakStart && (
@@ -263,7 +274,11 @@ export default function Professionals() {
                       className="flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700"
                     >
                       {date}
-                      <button type="button" onClick={() => removeTimeOff(date)} className="text-stone-500 hover:text-red-600">
+                      <button
+                        type="button"
+                        onClick={() => removeTimeOff(date)}
+                        className="text-stone-500 hover:text-red-600"
+                      >
                         ✕
                       </button>
                     </span>

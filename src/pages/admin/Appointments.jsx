@@ -1,3 +1,6 @@
+// Gestão de todos os agendamentos: filtros por profissional/status, criação
+// manual (cliente cadastrado ou avulso) e edição/reatribuição de um
+// agendamento existente (outro profissional, serviço, data ou horário).
 import { useEffect, useMemo, useState } from 'react'
 import {
   createAppointment,
@@ -25,7 +28,7 @@ function todayISO() {
 
 function emptyForm() {
   return {
-    clientMode: 'existing',
+    clientMode: 'existing', // 'existing' (cliente cadastrado) | 'walkin' (sem conta, só o nome)
     clientId: '',
     clientName: '',
     serviceId: '',
@@ -43,6 +46,7 @@ export default function Appointments() {
   const [professionalFilter, setProfessionalFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
+  // editingId: null (formulário fechado) | 'new' (criando) | id do agendamento em edição.
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm())
   const [slot, setSlot] = useState(null)
@@ -77,6 +81,8 @@ export default function Appointments() {
     [professionals, form.professionalId],
   )
 
+  // Horários livres do profissional escolhido, excluindo o próprio agendamento
+  // quando estamos editando (senão ele bloquearia o próprio horário atual).
   const availableSlots = useMemo(() => {
     if (!selectedProfessional || !selectedService || !form.date) return []
     const existing = appointments.filter((a) => a.professionalId === selectedProfessional.id)
@@ -114,6 +120,7 @@ export default function Appointments() {
     setSlot(null)
   }
 
+  // Qualquer mudança relevante do formulário invalida o horário já escolhido.
   function updateForm(patch) {
     setForm((prev) => ({ ...prev, ...patch }))
     setSlot(null)
@@ -229,7 +236,10 @@ export default function Appointments() {
             </Field>
 
             <Field label="Serviço">
-              <Select value={form.serviceId} onChange={(e) => updateForm({ serviceId: e.target.value, professionalId: '' })}>
+              <Select
+                value={form.serviceId}
+                onChange={(e) => updateForm({ serviceId: e.target.value, professionalId: '' })}
+              >
                 <option value="">Selecione um serviço</option>
                 {services.map((service) => (
                   <option key={service.id} value={service.id}>

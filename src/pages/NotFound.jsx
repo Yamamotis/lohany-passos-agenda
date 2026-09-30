@@ -1,3 +1,4 @@
+// Página exibida para qualquer rota que não exista (ver rota "*" no AppShell).
 import { Link } from 'react-router-dom'
 import { Button } from '../components/ui'
 

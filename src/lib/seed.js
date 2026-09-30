@@ -1,5 +1,9 @@
+// Dados iniciais (seed) usados na primeira vez que o app roda no navegador.
+// Servem só pra demonstração local — cada coleção só é populada se estiver
+// vazia (ver storage.seedIfEmpty), então dados já criados não são sobrescritos.
 import { storage } from './storage'
 
+// Expediente padrão do salão: seg-sex com almoço, sábado meio período, domingo fechado.
 const WEEKDAY_HOURS = { start: '09:00', end: '18:00', breakStart: '12:00', breakEnd: '13:00' }
 const TATTOO_HOURS = { start: '10:00', end: '19:00', breakStart: '13:00', breakEnd: '14:00' }
 
@@ -13,6 +17,7 @@ const DEFAULT_HOURS = {
   sun: null,
 }
 
+// A tatuadora não atende às segundas e tem um horário próprio.
 const TATTOO_WORKING_HOURS = {
   mon: null,
   tue: TATTOO_HOURS,
@@ -33,6 +38,7 @@ const services = [
   { id: 'svc-tatuagem', name: 'Tatuagem (sessão)', durationMinutes: 90, price: 250, active: true },
 ]
 
+// Um usuário de login para cada papel de teste (admin + 3 profissionais).
 const users = [
   {
     id: 'user-admin',
@@ -68,6 +74,8 @@ const users = [
   },
 ]
 
+// Cada profissional aponta para o seu usuário de login (userId) e para os
+// serviços que realiza (serviceIds), além do próprio expediente e folgas.
 const professionals = [
   {
     id: 'prof-ana',
@@ -98,6 +106,7 @@ const professionals = [
   },
 ]
 
+// Popula todas as coleções usadas pelo app. Chamada uma vez, ao iniciar o App.
 export function seedDatabase() {
   storage.seedIfEmpty('services', services)
   storage.seedIfEmpty('users', users)

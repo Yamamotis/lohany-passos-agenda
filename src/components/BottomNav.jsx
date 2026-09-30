@@ -1,3 +1,6 @@
+// Navegação por abas fixada no rodapé, exibida só no celular e só para o
+// cliente (a maioria dos usuários finais). Substitui o menu hambúrguer,
+// que é menos prático de alcançar com o polegar em telas grandes de celular.
 import { NavLink } from 'react-router-dom'
 
 const TABS = [

@@ -1,3 +1,7 @@
+// Peças de interface reutilizadas em várias telas (botão, campo de
+// formulário, cartão, etiqueta de status), pra manter o visual consistente
+// sem repetir classes do Tailwind em todo lugar.
+
 export function Button({ variant = 'primary', className = '', ...props }) {
   const base = 'rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed'
   const variants = {
@@ -9,6 +13,7 @@ export function Button({ variant = 'primary', className = '', ...props }) {
   return <button className={`${base} ${variants[variant]} ${className}`} {...props} />
 }
 
+// Rótulo + campo, para formulários (ex: <Field label="Nome"><Input .../></Field>).
 export function Field({ label, children }) {
   return (
     <label className="block">
@@ -36,10 +41,12 @@ export function Select(props) {
   )
 }
 
+// Contêiner básico com borda e sombra leve, usado para agrupar conteúdo.
 export function Card({ className = '', children }) {
   return <div className={`rounded-xl border border-stone-200 bg-white p-5 shadow-sm ${className}`}>{children}</div>
 }
 
+// Etiqueta colorida pra status (agendado, concluído, cancelado, etc).
 export function Badge({ children, tone = 'stone' }) {
   const tones = {
     stone: 'bg-stone-100 text-stone-700',

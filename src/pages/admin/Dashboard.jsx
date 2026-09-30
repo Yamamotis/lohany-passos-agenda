@@ -1,3 +1,5 @@
+// Painel inicial do admin: números gerais e algumas métricas de negócio
+// (faturamento do mês, serviço mais procurado, taxa de falta por profissional).
 import { useEffect, useMemo, useState } from 'react'
 import { listAppointments } from '../../lib/api/appointments'
 import { listServices } from '../../lib/api/services'
@@ -8,6 +10,7 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
+// "YYYY-MM" do mês atual, usado para filtrar agendamentos do mês corrente.
 function currentMonthKey() {
   return todayISO().slice(0, 7)
 }
@@ -41,6 +44,7 @@ export default function Dashboard() {
     }
   }, [appointments, services, professionals])
 
+  // Soma o preço dos serviços dos atendimentos concluídos no mês atual.
   const monthlyRevenue = useMemo(() => {
     const monthKey = currentMonthKey()
     return appointments
@@ -48,6 +52,7 @@ export default function Dashboard() {
       .reduce((sum, a) => sum + (services.find((s) => s.id === a.serviceId)?.price ?? 0), 0)
   }, [appointments, services])
 
+  // Serviço com mais agendamentos (contando qualquer status, exceto cancelado).
   const topService = useMemo(() => {
     const counts = new Map()
     appointments
@@ -61,6 +66,7 @@ export default function Dashboard() {
     return { name: services.find((s) => s.id === best.serviceId)?.name ?? '—', count: best.count }
   }, [appointments, services])
 
+  // Para cada profissional, quantos atendimentos foram falta em relação ao total (concluídos + faltas).
   const noShowByProfessional = useMemo(() => {
     return professionals
       .map((professional) => {

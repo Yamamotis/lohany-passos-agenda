@@ -1,3 +1,4 @@
+/* Estilos globais: importa o Tailwind e define o fundo/texto padrão da página. */
 @import "tailwindcss";
 
 body {

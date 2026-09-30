@@ -1,3 +1,7 @@
+// Fluxo de agendamento do cliente, em 3 passos (serviço → profissional →
+// data/horário). Pensado para celular: cartões grandes em vez de menus
+// suspensos, e uma barra fixa no rodapé com o resumo e o botão de ação,
+// sempre visível mesmo com a tela cheia de opções.
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
@@ -43,10 +47,12 @@ export default function BookAppointment() {
     [professionals, professionalId],
   )
 
+  // Carrega os serviços ativos assim que a tela abre.
   useEffect(() => {
     listActiveServices().then(setServices)
   }, [])
 
+  // Ao escolher um serviço, busca só os profissionais que o realizam.
   useEffect(() => {
     if (!serviceId) {
       setProfessionals([])
@@ -55,6 +61,7 @@ export default function BookAppointment() {
     listProfessionalsByService(serviceId).then(setProfessionals)
   }, [serviceId])
 
+  // Recalcula os horários livres sempre que profissional, serviço ou data mudam.
   useEffect(() => {
     setSelectedSlot(null)
     setSlots([])
@@ -71,6 +78,7 @@ export default function BookAppointment() {
     })
   }, [selectedProfessional, selectedService, date])
 
+  // Escolher um serviço já avança pro passo seguinte (menos toques no celular).
   function selectService(id) {
     setServiceId(id)
     setProfessionalId('')
@@ -110,6 +118,7 @@ export default function BookAppointment() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 pb-28">
+      {/* Indicador de progresso dos 3 passos. */}
       <div className="mb-6 flex items-center gap-2">
         {STEPS.map((s) => (
           <div key={s.number} className="flex flex-1 items-center gap-2 last:flex-none">
@@ -128,11 +137,17 @@ export default function BookAppointment() {
         ))}
       </div>
 
+      {/* Passo 1: escolha do serviço (cartão inteiro é clicável). */}
       {step === 1 && (
         <div className="space-y-3">
           <h1 className="text-xl font-semibold text-stone-900">Escolha o serviço</h1>
           {services.map((service) => (
-            <button key={service.id} type="button" onClick={() => selectService(service.id)} className="block w-full text-left">
+            <button
+              key={service.id}
+              type="button"
+              onClick={() => selectService(service.id)}
+              className="block w-full text-left"
+            >
               <Card
                 className={`flex items-center justify-between transition ${
                   serviceId === service.id ? 'border-rose-500 ring-1 ring-rose-500' : ''
@@ -149,6 +164,7 @@ export default function BookAppointment() {
         </div>
       )}
 
+      {/* Passo 2: escolha do profissional, já filtrado pelo serviço. */}
       {step === 2 && (
         <div className="space-y-3">
           <h1 className="text-xl font-semibold text-stone-900">Escolha o profissional</h1>
@@ -176,6 +192,7 @@ export default function BookAppointment() {
         </div>
       )}
 
+      {/* Passo 3: escolha de data e horário, com base nos slots calculados. */}
       {step === 3 && (
         <div className="space-y-5">
           <h1 className="text-xl font-semibold text-stone-900">Escolha data e horário</h1>
@@ -217,6 +234,7 @@ export default function BookAppointment() {
         </div>
       )}
 
+      {/* Barra fixa no rodapé: some no passo 1 (ainda não há nada pra resumir). */}
       {step > 1 && (
         <div className="fixed inset-x-0 bottom-16 z-30 border-t border-stone-200 bg-white/95 backdrop-blur sm:bottom-0">
           <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">

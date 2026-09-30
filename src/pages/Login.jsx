@@ -1,3 +1,4 @@
+// Tela de login. Após autenticar, redireciona para a home de cada papel.
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -48,6 +49,7 @@ export default function Login() {
             Cadastre-se
           </Link>
         </p>
+        {/* Atalho para quem está testando o app localmente. */}
         <div className="mt-6 rounded-lg bg-stone-50 p-3 text-xs text-stone-500">
           <p className="font-medium">Contas de teste:</p>
           <p>Admin: admin@salao.com / admin123</p>

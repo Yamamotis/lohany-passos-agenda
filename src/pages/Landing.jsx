@@ -1,3 +1,6 @@
+// Página pública inicial. Profissionais e admin nunca deveriam ver essa
+// tela de "agendar" (ela é voltada pro cliente), então são redirecionados
+// direto pra área deles caso caiam aqui.
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'

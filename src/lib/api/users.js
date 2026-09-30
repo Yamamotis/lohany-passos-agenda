@@ -1,3 +1,5 @@
+// Consultas a usuários que não se encaixam em auth.js (ex: listar clientes
+// cadastrados para o admin escolher ao criar um agendamento manual).
 import { storage } from '../storage'
 
 export async function listUsersByRole(role) {

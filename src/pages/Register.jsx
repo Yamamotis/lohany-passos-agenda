@@ -1,3 +1,5 @@
+// Cadastro de cliente. Profissionais e admin não se cadastram por aqui —
+// suas contas já existem via dados de seed (ou seriam criadas pelo admin).
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'

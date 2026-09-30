@@ -1,3 +1,5 @@
+// Configurações gerais do salão — por enquanto, só o telefone de WhatsApp
+// usado nos botões de contato exibidos ao cliente.
 import { useEffect, useState } from 'react'
 import { getSalonSettings, updateSalonSettings } from '../../lib/api/settings'
 import { useToast } from '../../context/ToastContext'
@@ -29,15 +31,10 @@ export default function Settings() {
       <Card>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="WhatsApp do salão">
-            <Input
-              type="tel"
-              placeholder="5511999999999"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
+            <Input type="tel" placeholder="5511999999999" value={phone} onChange={(e) => setPhone(e.target.value)} />
             <p className="mt-1 text-xs text-stone-500">
-              Use o número com código do país e DDD, só números (ex: 5511999999999). É esse número que os
-              clientes vão acionar pelo botão "Falar no WhatsApp".
+              Use o número com código do país e DDD, só números (ex: 5511999999999). É esse número que os clientes
+              vão acionar pelo botão "Falar no WhatsApp".
             </p>
           </Field>
           <Button type="submit" disabled={saving} className="w-full">

@@ -1,3 +1,6 @@
+// Tela de perfil, acessível a qualquer papel logado: editar nome/telefone,
+// trocar senha e sair da conta (necessário pro cliente no celular, já que
+// o menu hambúrguer com o logout não aparece pra ele — ver Navbar.jsx).
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -66,6 +69,7 @@ export default function Profile() {
           <Field label="Nome">
             <Input value={name} onChange={(e) => setName(e.target.value)} required />
           </Field>
+          {/* E-mail é o identificador de login, por isso não é editável aqui. */}
           <Field label="E-mail">
             <Input value={user.email} disabled />
           </Field>

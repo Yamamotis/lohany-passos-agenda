@@ -1,3 +1,6 @@
+// Agenda semanal do profissional logado: uma coluna por dia da semana,
+// com navegação entre semanas e ações rápidas para marcar atendimento
+// como concluído ou falta.
 import { useEffect, useMemo, useState } from 'react'
 import { addDays, addWeeks, format, isSameDay, startOfWeek } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -23,10 +26,14 @@ export default function MyAgenda() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
 
   async function load() {
+    // Descobre qual profissional está vinculado ao usuário logado.
     const prof = await getProfessionalByUserId(user.id)
     setProfessional(prof)
     if (!prof) return
-    const [appointmentsData, servicesData] = await Promise.all([listAppointmentsByProfessional(prof.id), listServices()])
+    const [appointmentsData, servicesData] = await Promise.all([
+      listAppointmentsByProfessional(prof.id),
+      listServices(),
+    ])
     setAppointments(appointmentsData.filter((a) => a.status !== 'cancelled'))
     setServices(servicesData)
   }
@@ -45,15 +52,16 @@ export default function MyAgenda() {
     return services.find((s) => s.id === id)?.name ?? '—'
   }
 
+  // Os 7 dias da semana selecionada, a partir da segunda-feira.
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
 
   function appointmentsForDay(day) {
     const dateStr = format(day, 'yyyy-MM-dd')
-    return appointments
-      .filter((a) => a.date === dateStr)
-      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+    return appointments.filter((a) => a.date === dateStr).sort((a, b) => a.startTime.localeCompare(b.startTime))
   }
 
+  // Usuário logado como profissional mas sem cadastro vinculado (não deveria
+  // acontecer com os dados de seed, mas evita tela quebrada nesse caso).
   if (!professional) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10">
@@ -79,6 +87,7 @@ export default function MyAgenda() {
         </div>
       </div>
 
+      {/* Uma coluna por dia (empilha no celular, grade de 7 colunas a partir de sm). */}
       <div className="grid grid-cols-1 gap-3 overflow-x-auto sm:grid-cols-7">
         {days.map((day) => {
           const dayAppointments = appointmentsForDay(day)

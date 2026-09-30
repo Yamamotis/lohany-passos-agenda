@@ -1,13 +1,18 @@
+// Captura erros inesperados de renderização em qualquer componente filho e
+// mostra uma tela amigável em vez de deixar a página em branco. Precisa ser
+// um componente de classe: React só suporta error boundary dessa forma.
 import { Component } from 'react'
 import { Button } from './ui'
 
 export default class ErrorBoundary extends Component {
   state = { hasError: false }
 
+  // Chamado pelo React quando um erro é lançado durante a renderização.
   static getDerivedStateFromError() {
     return { hasError: true }
   }
 
+  // Ponto para registrar o erro (aqui só no console; poderia enviar a um serviço de log).
   componentDidCatch(error, info) {
     console.error('Erro não tratado na aplicação:', error, info)
   }

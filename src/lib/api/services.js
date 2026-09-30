@@ -1,7 +1,9 @@
+// Acesso aos dados de serviços do salão (corte, escova, tatuagem etc).
 import { storage } from '../storage'
 
 export const listServices = () => storage.getAll('services')
 
+// Só os serviços ativos aparecem na tela de agendamento do cliente.
 export async function listActiveServices() {
   const services = await storage.getAll('services')
   return services.filter((s) => s.active)

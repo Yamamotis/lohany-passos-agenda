@@ -1,7 +1,15 @@
+// Lista de agendamentos do cliente logado, com opção de cancelar ou
+// remarcar (dentro do prazo mínimo) e um atalho de WhatsApp para o salão
+// quando o prazo já não permite alteração pelo próprio app.
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
-import { listAppointmentsByClient, listAppointmentsByProfessional, updateAppointment, updateAppointmentStatus } from '../../lib/api/appointments'
+import {
+  listAppointmentsByClient,
+  listAppointmentsByProfessional,
+  updateAppointment,
+  updateAppointmentStatus,
+} from '../../lib/api/appointments'
 import { listServices } from '../../lib/api/services'
 import { listProfessionals } from '../../lib/api/professionals'
 import { getAvailableSlots } from '../../lib/slots'
@@ -29,6 +37,7 @@ export default function MyAppointments() {
   const [services, setServices] = useState([])
   const [professionals, setProfessionals] = useState([])
 
+  // Estado da remarcação em andamento (no máximo um agendamento por vez).
   const [reschedulingId, setReschedulingId] = useState(null)
   const [rescheduleDate, setRescheduleDate] = useState('')
   const [rescheduleSlots, setRescheduleSlots] = useState([])
@@ -53,6 +62,8 @@ export default function MyAppointments() {
     getSalonSettings().then((settings) => setSalonPhone(settings.phone ?? ''))
   }, [user.id])
 
+  // Recalcula os horários livres da remarcação sempre que a data muda,
+  // excluindo o próprio agendamento (senão ele bloquearia o próprio horário).
   useEffect(() => {
     if (!reschedulingId) return
     const appointment = appointments.find((a) => a.id === reschedulingId)
@@ -73,8 +84,12 @@ export default function MyAppointments() {
     })
   }, [reschedulingId, rescheduleDate])
 
+  // Cliente só pode mexer sozinho se faltar mais que o prazo mínimo de cancelamento.
   function canModify(appointment) {
-    return appointment.status === 'scheduled' && hoursUntil(appointment.date, appointment.startTime) >= CANCELLATION_CUTOFF_HOURS
+    return (
+      appointment.status === 'scheduled' &&
+      hoursUntil(appointment.date, appointment.startTime) >= CANCELLATION_CUTOFF_HOURS
+    )
   }
 
   async function handleCancel(id) {
@@ -156,6 +171,7 @@ export default function MyAppointments() {
                   </div>
                 </div>
 
+                {/* Fora do prazo: em vez de cancelar/remarcar, oferece contato direto. */}
                 {appointment.status === 'scheduled' && !modifiable && (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <p className="text-xs text-amber-600">
@@ -177,6 +193,7 @@ export default function MyAppointments() {
                   </div>
                 )}
 
+                {/* Painel de remarcação, aberto só para o agendamento selecionado. */}
                 {isRescheduling && (
                   <div className="mt-4 space-y-3 border-t border-stone-200 pt-4">
                     <input

@@ -1,3 +1,5 @@
+// Contexto de notificações rápidas (toasts) no canto da tela, usado pra dar
+// feedback de ações como "agendamento cancelado" ou erros de validação.
 import { createContext, useCallback, useContext, useState } from 'react'
 
 const ToastContext = createContext(null)
@@ -6,6 +8,7 @@ let idCounter = 0
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
 
+  // Adiciona um toast à fila e agenda sua remoção automática.
   const showToast = useCallback((message, type = 'success') => {
     const id = ++idCounter
     setToasts((prev) => [...prev, { id, message, type }])
@@ -17,6 +20,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
+      {/* Container fixo no canto inferior direito onde os toasts aparecem. */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
         {toasts.map((toast) => (
           <div

@@ -1,3 +1,7 @@
+// Estrutura visual do app: navbar, área de conteúdo (com as rotas) e,
+// quando for cliente, a navegação por abas no rodapé. Fica em um componente
+// à parte porque precisa ler o usuário logado (useAuth), o que só é possível
+// dentro do AuthProvider.
 import { Route, Routes } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Navbar from './Navbar'
@@ -25,12 +29,14 @@ export default function AppShell() {
   return (
     <div className="min-h-screen bg-stone-50">
       <Navbar />
+      {/* Espaço reservado no rodapé no celular, pra conteúdo não ficar atrás das abas. */}
       <div className={showBottomNav ? 'pb-16 sm:pb-0' : ''}>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Register />} />
 
+          {/* Perfil é acessível a qualquer papel logado, sem restrição de role. */}
           <Route
             path="/perfil"
             element={
@@ -40,6 +46,7 @@ export default function AppShell() {
             }
           />
 
+          {/* Área do cliente */}
           <Route
             path="/agendar"
             element={
@@ -57,6 +64,7 @@ export default function AppShell() {
             }
           />
 
+          {/* Área do profissional */}
           <Route
             path="/minha-agenda"
             element={
@@ -66,6 +74,7 @@ export default function AppShell() {
             }
           />
 
+          {/* Área do admin */}
           <Route
             path="/admin"
             element={

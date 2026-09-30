@@ -49,13 +49,6 @@ export default function Login() {
             Cadastre-se
           </Link>
         </p>
-        {/* Atalho para quem está testando o app localmente. */}
-        <div className="mt-6 rounded-lg bg-stone-50 p-3 text-xs text-stone-500 dark:bg-stone-800 dark:text-stone-400">
-          <p className="font-medium">Contas de teste:</p>
-          <p>Admin: admin@salao.com / admin123</p>
-          <p>Profissional (cabelo): ana@salao.com / 123456</p>
-          <p>Profissional (tatuagem): camila@salao.com / 123456</p>
-        </div>
       </Card>
     </div>
   )

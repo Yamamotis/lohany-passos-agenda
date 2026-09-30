@@ -1,0 +1,1 @@
+export const CANCELLATION_CUTOFF_HOURS = 2

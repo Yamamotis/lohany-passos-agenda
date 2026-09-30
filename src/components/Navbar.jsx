@@ -1,0 +1,123 @@
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { getHomeRoute } from '../lib/roleHome'
+import { Button } from './ui'
+
+const ROLE_LINKS = {
+  client: [
+    { to: '/agendar', label: 'Agendar' },
+    { to: '/meus-agendamentos', label: 'Meus agendamentos' },
+  ],
+  professional: [{ to: '/minha-agenda', label: 'Minha agenda' }],
+  admin: [
+    { to: '/admin', label: 'Painel' },
+    { to: '/admin/servicos', label: 'Serviços' },
+    { to: '/admin/profissionais', label: 'Profissionais' },
+    { to: '/admin/agendamentos', label: 'Agendamentos' },
+    { to: '/admin/configuracoes', label: 'Configurações' },
+  ],
+}
+
+export default function Navbar() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  function handleLogout() {
+    setMenuOpen(false)
+    logout()
+    navigate('/')
+  }
+
+  function handleNavigate() {
+    setMenuOpen(false)
+  }
+
+  const links = user ? ROLE_LINKS[user.role] ?? [] : []
+  const showMobileMenu = user?.role !== 'client'
+
+  return (
+    <header className="border-b border-stone-200 bg-white">
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+        <Link to={getHomeRoute(user)} className="text-lg font-semibold text-rose-600" onClick={handleNavigate}>
+          Salão Agenda
+        </Link>
+
+        {showMobileMenu && (
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-stone-300 sm:hidden"
+            aria-label="Abrir menu"
+          >
+            <span className="text-xl leading-none">{menuOpen ? '✕' : '☰'}</span>
+          </button>
+        )}
+
+        <nav className="hidden items-center gap-4 sm:flex">
+          {links.map((link) => (
+            <Link key={link.to} to={link.to} className="text-sm text-stone-600 hover:text-rose-600">
+              {link.label}
+            </Link>
+          ))}
+
+          {user ? (
+            <div className="flex items-center gap-3 border-l border-stone-200 pl-4">
+              <Link to="/perfil" className="text-sm text-stone-500 hover:text-rose-600">
+                {user.name}
+              </Link>
+              <Button variant="secondary" onClick={handleLogout}>
+                Sair
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 border-l border-stone-200 pl-4">
+              <Link to="/login" className="text-sm text-stone-600 hover:text-rose-600">
+                Entrar
+              </Link>
+              <Link to="/cadastro">
+                <Button>Criar conta</Button>
+              </Link>
+            </div>
+          )}
+        </nav>
+      </div>
+
+      {showMobileMenu && menuOpen && (
+        <nav className="flex flex-col gap-1 border-t border-stone-200 px-4 py-3 sm:hidden">
+          {links.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              onClick={handleNavigate}
+              className="rounded-lg px-2 py-2 text-sm text-stone-700 hover:bg-stone-50"
+            >
+              {link.label}
+            </Link>
+          ))}
+
+          {user ? (
+            <div className="mt-2 flex items-center justify-between border-t border-stone-200 pt-3">
+              <Link to="/perfil" onClick={handleNavigate} className="text-sm text-stone-500 hover:text-rose-600">
+                {user.name}
+              </Link>
+              <Button variant="secondary" onClick={handleLogout}>
+                Sair
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-2 flex items-center gap-2 border-t border-stone-200 pt-3">
+              <Link to="/login" onClick={handleNavigate} className="text-sm text-stone-600 hover:text-rose-600">
+                Entrar
+              </Link>
+              <Link to="/cadastro" onClick={handleNavigate}>
+                <Button>Criar conta</Button>
+              </Link>
+            </div>
+          )}
+        </nav>
+      )}
+    </header>
+  )
+}

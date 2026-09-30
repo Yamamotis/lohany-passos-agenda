@@ -32,7 +32,7 @@ export default function Register() {
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
       <Card>
-        <h1 className="mb-6 text-xl font-semibold text-stone-900">Criar conta</h1>
+        <h1 className="mb-6 text-xl font-semibold text-stone-900 dark:text-stone-100">Criar conta</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="Nome">
             <Input value={name} onChange={(e) => setName(e.target.value)} required />
@@ -63,7 +63,7 @@ export default function Register() {
             {submitting ? 'Criando...' : 'Criar conta'}
           </Button>
         </form>
-        <p className="mt-4 text-sm text-stone-500">
+        <p className="mt-4 text-sm text-stone-500 dark:text-stone-400">
           Já tem conta?{' '}
           <Link to="/login" className="text-rose-600 hover:underline">
             Entrar

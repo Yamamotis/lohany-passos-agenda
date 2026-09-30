@@ -5,19 +5,34 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#e11d48" />
-    <title>Salão Agenda</title>
+    <title>Lohany Passos</title>
     <meta
       name="description"
       content="Agende horários no salão em poucos cliques: escolha o serviço, a profissional e o melhor horário para você."
     />
 
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Salão Agenda" />
+    <meta property="og:title" content="Lohany Passos" />
     <meta
       property="og:description"
       content="Agende horários no salão em poucos cliques: escolha o serviço, a profissional e o melhor horário para você."
     />
     <meta property="og:image" content="/favicon.svg" />
+
+    <!--
+      Aplica o modo escuro (padrão do app) antes da página renderizar,
+      pra não piscar claro-depois-escuro. Só fica claro se o usuário já
+      tiver escolhido isso antes (ThemeContext salva em localStorage).
+    -->
+    <script>
+      try {
+        if (localStorage.getItem('salao:theme') !== 'light') {
+          document.documentElement.classList.add('dark')
+        }
+      } catch {
+        document.documentElement.classList.add('dark')
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

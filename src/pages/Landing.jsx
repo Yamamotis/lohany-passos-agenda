@@ -25,8 +25,8 @@ export default function Landing() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-20 text-center">
-      <h1 className="text-4xl font-bold text-stone-900">Agende seu horário no salão</h1>
-      <p className="mt-4 text-lg text-stone-600">
+      <h1 className="text-4xl font-bold text-stone-900 dark:text-stone-100">Agende seu horário no salão</h1>
+      <p className="mt-4 text-lg text-stone-600 dark:text-stone-400">
         Escolha o serviço, a profissional e o melhor horário para você, tudo em poucos cliques.
       </p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">

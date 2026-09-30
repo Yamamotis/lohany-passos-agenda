@@ -1,6 +1,11 @@
 /* Estilos globais: importa o Tailwind e define o fundo/texto padrão da página. */
 @import "tailwindcss";
 
+/* Tailwind v4 usa a preferência do sistema por padrão; aqui trocamos para
+   modo por classe (.dark no <html>), controlado pelo ThemeContext, já que
+   o app deve abrir escuro por padrão independente do sistema do usuário. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 body {
-  @apply bg-stone-50 text-stone-900;
+  @apply bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100;
 }

@@ -11,14 +11,14 @@ const TABS = [
 
 export default function BottomNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 border-t border-stone-200 bg-white sm:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 border-t border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900 sm:hidden">
       {TABS.map((tab) => (
         <NavLink
           key={tab.to}
           to={tab.to}
           className={({ isActive }) =>
             `flex flex-1 flex-col items-center justify-center gap-0.5 text-xs ${
-              isActive ? 'text-rose-600' : 'text-stone-500'
+              isActive ? 'text-rose-600' : 'text-stone-500 dark:text-stone-400'
             }`
           }
         >

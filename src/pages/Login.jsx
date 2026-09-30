@@ -30,7 +30,7 @@ export default function Login() {
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
       <Card>
-        <h1 className="mb-6 text-xl font-semibold text-stone-900">Entrar</h1>
+        <h1 className="mb-6 text-xl font-semibold text-stone-900 dark:text-stone-100">Entrar</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="E-mail">
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -43,14 +43,14 @@ export default function Login() {
             {submitting ? 'Entrando...' : 'Entrar'}
           </Button>
         </form>
-        <p className="mt-4 text-sm text-stone-500">
+        <p className="mt-4 text-sm text-stone-500 dark:text-stone-400">
           Ainda não tem conta?{' '}
           <Link to="/cadastro" className="text-rose-600 hover:underline">
             Cadastre-se
           </Link>
         </p>
         {/* Atalho para quem está testando o app localmente. */}
-        <div className="mt-6 rounded-lg bg-stone-50 p-3 text-xs text-stone-500">
+        <div className="mt-6 rounded-lg bg-stone-50 p-3 text-xs text-stone-500 dark:bg-stone-800 dark:text-stone-400">
           <p className="font-medium">Contas de teste:</p>
           <p>Admin: admin@salao.com / admin123</p>
           <p>Profissional (cabelo): ana@salao.com / 123456</p>

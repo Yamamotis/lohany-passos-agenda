@@ -27,7 +27,7 @@ export default function AppShell() {
   const showBottomNav = user?.role === 'client'
 
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
       <Navbar />
       {/* Espaço reservado no rodapé no celular, pra conteúdo não ficar atrás das abas. */}
       <div className={showBottomNav ? 'pb-16 sm:pb-0' : ''}>

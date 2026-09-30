@@ -34,6 +34,7 @@ Clientes se cadastram pela própria tela de "Criar conta".
 - `npm run dev` — servidor de desenvolvimento.
 - `npm run build` — build de produção.
 - `npm run lint` — lint com Oxlint.
+- `npm run test` — testes automatizados (Vitest), hoje cobrindo `src/lib/slots.js`.
 - `npm run preview` — preview do build de produção.
 
 ## Próximos passos

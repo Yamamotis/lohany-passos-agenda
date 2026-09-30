@@ -1,60 +1,91 @@
-// Autenticação simples baseada em localStorage (fase local do projeto).
-// Quando o Supabase entrar, este arquivo passa a chamar supabase.auth.*,
-// mantendo as mesmas funções exportadas para não precisar mexer nas telas.
-import { storage } from '../storage'
+// Autenticação via Supabase Auth. A tabela `usuarios` guarda o perfil
+// (nome, telefone, papel); ela é criada automaticamente por um trigger no
+// banco quando alguém se cadastra (sempre como "CLIENTE" — promover para
+// profissional/admin é feito à parte, nunca pelo cadastro público).
+import { supabase } from '../supabaseClient'
 
-const SESSION_KEY = 'salao:session'
-
-// Remove a senha do objeto antes de expor o usuário para o resto do app.
-function sanitize(user) {
-  const { password: _password, ...rest } = user
-  return rest
+// Papel no banco (maiúsculo, em português) -> papel usado no app (o resto
+// do código já fala 'admin' | 'professional' | 'client').
+const ROLE_FROM_DB = {
+  ADMIN: 'admin',
+  PROFISSIONAL: 'professional',
+  CLIENTE: 'client',
 }
 
-// Cria uma conta de cliente e já efetua o login.
+async function fetchProfile(id) {
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select('id, nome, email, telefone, tipo_usuario')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+
+  return {
+    id: data.id,
+    name: data.nome,
+    email: data.email,
+    phone: data.telefone,
+    role: ROLE_FROM_DB[data.tipo_usuario] ?? 'client',
+  }
+}
+
 export async function register({ name, email, phone, password }) {
-  const users = await storage.getAll('users')
-  if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
-    throw new Error('Este e-mail já está cadastrado.')
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { nome: name, telefone: phone } },
+  })
+  if (error) throw new Error(error.message === 'User already registered' ? 'Este e-mail já está cadastrado.' : error.message)
+
+  // Se a confirmação por e-mail estiver ativa no projeto, ainda não há sessão aqui.
+  if (!data.session) {
+    throw new Error('Conta criada! Confirme seu e-mail antes de entrar.')
   }
-  const user = await storage.insert('users', { name, email, phone, password, role: 'client' })
-  localStorage.setItem(SESSION_KEY, user.id)
-  return sanitize(user)
+  return fetchProfile(data.user.id)
 }
 
-// Autentica por e-mail/senha e guarda a sessão (id do usuário) no navegador.
 export async function login({ email, password }) {
-  const users = await storage.getAll('users')
-  const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password)
-  if (!user) throw new Error('E-mail ou senha inválidos.')
-  localStorage.setItem(SESSION_KEY, user.id)
-  return sanitize(user)
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) throw new Error('E-mail ou senha inválidos.')
+  return fetchProfile(data.user.id)
 }
 
-// Encerra a sessão atual.
-export function logout() {
-  localStorage.removeItem(SESSION_KEY)
+export async function logout() {
+  await supabase.auth.signOut()
 }
 
-// Recupera o usuário logado (se houver) a partir da sessão salva.
 export async function getCurrentUser() {
-  const id = localStorage.getItem(SESSION_KEY)
-  if (!id) return null
-  const user = await storage.getById('users', id)
-  return user ? sanitize(user) : null
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) return null
+  return fetchProfile(session.user.id)
 }
 
-// Atualiza dados do próprio perfil (nome, telefone, etc).
 export async function updateProfile(id, patch) {
-  const user = await storage.update('users', id, patch)
-  return sanitize(user)
+  const dbPatch = {}
+  if ('name' in patch) dbPatch.nome = patch.name
+  if ('phone' in patch) dbPatch.telefone = patch.phone
+
+  const { error } = await supabase.from('usuarios').update(dbPatch).eq('id', id)
+  if (error) throw error
+  return fetchProfile(id)
 }
 
-// Troca a senha, validando a senha atual antes.
-export async function changePassword(id, currentPassword, newPassword) {
-  const user = await storage.getById('users', id)
-  if (!user || user.password !== currentPassword) {
-    throw new Error('Senha atual incorreta.')
-  }
-  await storage.update('users', id, { password: newPassword })
+// Reautentica com a senha atual (Supabase não expõe "verificar senha" direto)
+// antes de trocar — assim garantimos que quem está trocando sabe a senha antiga.
+export async function changePassword(currentPassword, newPassword) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Sessão expirada, faça login novamente.')
+
+  const { error: verifyError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  })
+  if (verifyError) throw new Error('Senha atual incorreta.')
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw error
 }

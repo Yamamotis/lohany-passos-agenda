@@ -10,13 +10,25 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import { listActiveServices } from '../../lib/api/services'
 import { listProfessionalsByService } from '../../lib/api/professionals'
-import { createAppointment, listAppointmentsByProfessional } from '../../lib/api/appointments'
-import { getAvailableSlots } from '../../lib/slots'
+import { createAppointment, getAvailableSlots } from '../../lib/api/appointments'
+import { getSalonSettings } from '../../lib/api/settings'
 import { parseLocalDate } from '../../lib/datetime'
 import { Button, Card, Field } from '../../components/ui'
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function addDaysISO(dateStr, days) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d + days)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+// Preço 0 significa "a combinar" (ex: serviços orçados na hora) — não faz
+// sentido mostrar "R$ 0" pro cliente nesse caso.
+function formatPrice(price) {
+  return price === 0 ? 'Valor a combinar' : `R$ ${price}`
 }
 
 const STEPS = [
@@ -40,6 +52,7 @@ export default function BookAppointment() {
   const [selectedSlot, setSelectedSlot] = useState(null)
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState('')
+  const [maxDate, setMaxDate] = useState(null)
 
   const selectedService = useMemo(() => services.find((s) => s.id === serviceId), [services, serviceId])
   const selectedProfessional = useMemo(
@@ -50,6 +63,7 @@ export default function BookAppointment() {
   // Carrega os serviços ativos assim que a tela abre.
   useEffect(() => {
     listActiveServices().then(setServices)
+    getSalonSettings().then((settings) => setMaxDate(addDaysISO(todayISO(), settings.maxAdvanceBookingDays)))
   }, [])
 
   // Ao escolher um serviço, busca só os profissionais que o realizam.
@@ -67,15 +81,11 @@ export default function BookAppointment() {
     setSlots([])
     if (!selectedProfessional || !selectedService || !date) return
 
-    listAppointmentsByProfessional(selectedProfessional.id).then((existingAppointments) => {
-      const available = getAvailableSlots({
-        professional: selectedProfessional,
-        durationMinutes: selectedService.durationMinutes,
-        date,
-        existingAppointments,
-      })
-      setSlots(available)
-    })
+    getAvailableSlots({
+      professionalId: selectedProfessional.id,
+      serviceId: selectedService.id,
+      date,
+    }).then(setSlots)
   }, [selectedProfessional, selectedService, date])
 
   // Escolher um serviço já avança pro passo seguinte (menos toques no celular).
@@ -100,13 +110,11 @@ export default function BookAppointment() {
     setError('')
     try {
       await createAppointment({
-        clientId: user.id,
-        clientName: user.name,
+        clientUserId: user.id,
         professionalId: selectedProfessional.id,
         serviceId: selectedService.id,
         date,
         startTime: selectedSlot.startTime,
-        endTime: selectedSlot.endTime,
       })
       showToast('Agendamento confirmado!')
       navigate('/meus-agendamentos')
@@ -124,15 +132,19 @@ export default function BookAppointment() {
           <div key={s.number} className="flex flex-1 items-center gap-2 last:flex-none">
             <div
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
-                step >= s.number ? 'bg-rose-600 text-white' : 'bg-stone-200 text-stone-500'
+                step >= s.number ? 'bg-rose-600 text-white' : 'bg-stone-200 text-stone-500 dark:bg-stone-800 dark:text-stone-500'
               }`}
             >
               {s.number}
             </div>
-            <span className={`hidden text-xs sm:inline ${step >= s.number ? 'text-stone-900' : 'text-stone-400'}`}>
+            <span
+              className={`hidden text-xs sm:inline ${
+                step >= s.number ? 'text-stone-900 dark:text-stone-100' : 'text-stone-400 dark:text-stone-600'
+              }`}
+            >
               {s.label}
             </span>
-            {s.number < STEPS.length && <div className="h-px flex-1 bg-stone-200" />}
+            {s.number < STEPS.length && <div className="h-px flex-1 bg-stone-200 dark:bg-stone-800" />}
           </div>
         ))}
       </div>
@@ -140,7 +152,7 @@ export default function BookAppointment() {
       {/* Passo 1: escolha do serviço (cartão inteiro é clicável). */}
       {step === 1 && (
         <div className="space-y-3">
-          <h1 className="text-xl font-semibold text-stone-900">Escolha o serviço</h1>
+          <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-100">Escolha o serviço</h1>
           {services.map((service) => (
             <button
               key={service.id}
@@ -154,10 +166,10 @@ export default function BookAppointment() {
                 }`}
               >
                 <div>
-                  <p className="font-medium text-stone-900">{service.name}</p>
-                  <p className="text-sm text-stone-500">{service.durationMinutes}min</p>
+                  <p className="font-medium text-stone-900 dark:text-stone-100">{service.name}</p>
+                  <p className="text-sm text-stone-500 dark:text-stone-400">{service.durationMinutes}min</p>
                 </div>
-                <p className="font-medium text-stone-900">R$ {service.price}</p>
+                <p className="font-medium text-stone-900 dark:text-stone-100">{formatPrice(service.price)}</p>
               </Card>
             </button>
           ))}
@@ -167,9 +179,11 @@ export default function BookAppointment() {
       {/* Passo 2: escolha do profissional, já filtrado pelo serviço. */}
       {step === 2 && (
         <div className="space-y-3">
-          <h1 className="text-xl font-semibold text-stone-900">Escolha o profissional</h1>
+          <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-100">Escolha o profissional</h1>
           {professionals.length === 0 ? (
-            <p className="text-sm text-stone-500">Nenhum profissional disponível para este serviço.</p>
+            <p className="text-sm text-stone-500 dark:text-stone-400">
+              Nenhum profissional disponível para este serviço.
+            </p>
           ) : (
             professionals.map((professional) => (
               <button
@@ -183,8 +197,10 @@ export default function BookAppointment() {
                     professionalId === professional.id ? 'border-rose-500 ring-1 ring-rose-500' : ''
                   }`}
                 >
-                  <p className="font-medium text-stone-900">{professional.name}</p>
-                  {professional.bio && <p className="text-sm text-stone-500">{professional.bio}</p>}
+                  <p className="font-medium text-stone-900 dark:text-stone-100">{professional.name}</p>
+                  {professional.bio && (
+                    <p className="text-sm text-stone-500 dark:text-stone-400">{professional.bio}</p>
+                  )}
                 </Card>
               </button>
             ))
@@ -195,21 +211,22 @@ export default function BookAppointment() {
       {/* Passo 3: escolha de data e horário, com base nos slots calculados. */}
       {step === 3 && (
         <div className="space-y-5">
-          <h1 className="text-xl font-semibold text-stone-900">Escolha data e horário</h1>
+          <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-100">Escolha data e horário</h1>
 
           <Field label="Data">
             <input
               type="date"
               min={todayISO()}
+              max={maxDate ?? undefined}
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100"
             />
           </Field>
 
           <Field label="Horário">
             {slots.length === 0 ? (
-              <p className="text-sm text-stone-500">Nenhum horário disponível neste dia.</p>
+              <p className="text-sm text-stone-500 dark:text-stone-400">Nenhum horário disponível neste dia.</p>
             ) : (
               <div className="grid grid-cols-4 gap-2">
                 {slots.map((slot) => (
@@ -220,7 +237,7 @@ export default function BookAppointment() {
                     className={`rounded-lg border px-2 py-3 text-sm ${
                       selectedSlot?.startTime === slot.startTime
                         ? 'border-rose-600 bg-rose-600 text-white'
-                        : 'border-stone-300 text-stone-700 hover:border-rose-400'
+                        : 'border-stone-300 text-stone-700 hover:border-rose-400 dark:border-stone-700 dark:text-stone-300'
                     }`}
                   >
                     {slot.startTime}
@@ -230,15 +247,15 @@ export default function BookAppointment() {
             )}
           </Field>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         </div>
       )}
 
       {/* Barra fixa no rodapé: some no passo 1 (ainda não há nada pra resumir). */}
       {step > 1 && (
-        <div className="fixed inset-x-0 bottom-16 z-30 border-t border-stone-200 bg-white/95 backdrop-blur sm:bottom-0">
+        <div className="fixed inset-x-0 bottom-16 z-30 border-t border-stone-200 bg-white/95 backdrop-blur dark:border-stone-800 dark:bg-stone-900/95 sm:bottom-0">
           <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
-            <div className="min-w-0 flex-1 text-sm text-stone-600">
+            <div className="min-w-0 flex-1 text-sm text-stone-600 dark:text-stone-300">
               {selectedService && (
                 <p className="truncate">
                   {selectedService.name}
@@ -252,7 +269,9 @@ export default function BookAppointment() {
                   )}
                 </p>
               )}
-              {selectedService && <p className="text-xs text-stone-400">R$ {selectedService.price}</p>}
+              {selectedService && (
+                <p className="text-xs text-stone-400 dark:text-stone-500">{formatPrice(selectedService.price)}</p>
+              )}
             </div>
             <Button variant="secondary" onClick={goBack}>
               Voltar

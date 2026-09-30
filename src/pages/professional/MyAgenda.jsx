@@ -1,6 +1,10 @@
-// Agenda semanal do profissional logado: uma coluna por dia da semana,
-// com navegação entre semanas e ações rápidas para marcar atendimento
-// como concluído ou falta.
+// Agenda semanal do profissional logado: uma coluna por dia da semana, com
+// navegação entre semanas e ações rápidas pra avançar o atendimento.
+//
+// O banco valida a transição de status (ver validar_transicao_agendamento):
+// um profissional não pode pular direto de AGENDADO para CONCLUIDO, por
+// exemplo — precisa passar por CONFIRMADO e EM_ATENDIMENTO. As ações abaixo
+// só oferecem os próximos passos válidos a partir do status atual.
 import { useEffect, useMemo, useState } from 'react'
 import { addDays, addWeeks, format, isSameDay, startOfWeek } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -12,9 +16,28 @@ import { listServices } from '../../lib/api/services'
 import { Badge, Button, Card } from '../../components/ui'
 
 const STATUS_LABEL = {
-  scheduled: { label: 'Agendado', tone: 'green' },
-  completed: { label: 'Concluído', tone: 'stone' },
-  no_show: { label: 'Não compareceu', tone: 'amber' },
+  AGENDADO: { label: 'Agendado', tone: 'green' },
+  CONFIRMADO: { label: 'Confirmado', tone: 'green' },
+  EM_ATENDIMENTO: { label: 'Em atendimento', tone: 'amber' },
+  CONCLUIDO: { label: 'Concluído', tone: 'stone' },
+  NAO_COMPARECEU: { label: 'Não compareceu', tone: 'amber' },
+}
+
+const CANCELLED_STATUSES = ['CANCELADO_CLIENTE', 'CANCELADO_PROFISSIONAL']
+
+// Próximas ações possíveis a partir de cada status (rótulo do botão + status alvo).
+const NEXT_ACTIONS = {
+  AGENDADO: [
+    { label: 'Confirmar', next: 'CONFIRMADO' },
+    { label: 'Falta', next: 'NAO_COMPARECEU' },
+    { label: 'Cancelar', next: 'CANCELADO_PROFISSIONAL' },
+  ],
+  CONFIRMADO: [
+    { label: 'Iniciar', next: 'EM_ATENDIMENTO' },
+    { label: 'Falta', next: 'NAO_COMPARECEU' },
+    { label: 'Cancelar', next: 'CANCELADO_PROFISSIONAL' },
+  ],
+  EM_ATENDIMENTO: [{ label: 'Concluir', next: 'CONCLUIDO' }],
 }
 
 export default function MyAgenda() {
@@ -34,7 +57,7 @@ export default function MyAgenda() {
       listAppointmentsByProfessional(prof.id),
       listServices(),
     ])
-    setAppointments(appointmentsData.filter((a) => a.status !== 'cancelled'))
+    setAppointments(appointmentsData.filter((a) => !CANCELLED_STATUSES.includes(a.status)))
     setServices(servicesData)
   }
 
@@ -43,9 +66,12 @@ export default function MyAgenda() {
   }, [user.id])
 
   async function handleStatusChange(id, status) {
-    await updateAppointmentStatus(id, status)
-    showToast(status === 'completed' ? 'Atendimento marcado como concluído.' : 'Agendamento marcado como falta.')
-    load()
+    try {
+      await updateAppointmentStatus(id, status)
+      load()
+    } catch (err) {
+      showToast(err.message, 'error')
+    }
   }
 
   function serviceName(id) {
@@ -65,7 +91,7 @@ export default function MyAgenda() {
   if (!professional) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10">
-        <p className="text-stone-500">Este usuário não está vinculado a um profissional cadastrado.</p>
+        <p className="text-stone-500 dark:text-stone-400">Este usuário não está vinculado a um profissional cadastrado.</p>
       </div>
     )
   }
@@ -73,7 +99,7 @@ export default function MyAgenda() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-stone-900">Minha agenda</h1>
+        <h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100">Minha agenda</h1>
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={() => setWeekStart((d) => addWeeks(d, -1))}>
             ‹ Semana anterior
@@ -94,42 +120,44 @@ export default function MyAgenda() {
           const today = isSameDay(day, new Date())
           return (
             <Card key={day.toISOString()} className={`min-w-[180px] ${today ? 'border-rose-400' : ''}`}>
-              <p className={`mb-3 text-sm font-medium capitalize ${today ? 'text-rose-600' : 'text-stone-700'}`}>
+              <p
+                className={`mb-3 text-sm font-medium capitalize ${
+                  today ? 'text-rose-600' : 'text-stone-700 dark:text-stone-300'
+                }`}
+              >
                 {format(day, 'EEE, dd/MM', { locale: ptBR })}
               </p>
 
               {dayAppointments.length === 0 ? (
-                <p className="text-xs text-stone-400">Sem agendamentos</p>
+                <p className="text-xs text-stone-400 dark:text-stone-600">Sem agendamentos</p>
               ) : (
                 <div className="space-y-2">
                   {dayAppointments.map((appointment) => {
                     const status = STATUS_LABEL[appointment.status]
+                    const actions = NEXT_ACTIONS[appointment.status] ?? []
                     return (
-                      <div key={appointment.id} className="rounded-lg border border-stone-200 p-2 text-xs">
-                        <p className="font-medium text-stone-900">
+                      <div
+                        key={appointment.id}
+                        className="rounded-lg border border-stone-200 p-2 text-xs dark:border-stone-800"
+                      >
+                        <p className="font-medium text-stone-900 dark:text-stone-100">
                           {appointment.startTime} · {appointment.clientName}
                         </p>
-                        <p className="text-stone-500">{serviceName(appointment.serviceId)}</p>
-                        <div className="mt-1 flex items-center justify-between">
+                        <p className="text-stone-500 dark:text-stone-400">{serviceName(appointment.serviceId)}</p>
+                        <div className="mt-1 flex flex-wrap items-center justify-between gap-1">
                           <Badge tone={status?.tone}>{status?.label}</Badge>
-                          {appointment.status === 'scheduled' && (
-                            <div className="flex gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleStatusChange(appointment.id, 'completed')}
-                                className="text-stone-500 hover:text-stone-900"
-                                title="Marcar como concluído"
-                              >
-                                ✓
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleStatusChange(appointment.id, 'no_show')}
-                                className="text-stone-500 hover:text-red-600"
-                                title="Marcar como falta"
-                              >
-                                ✕
-                              </button>
+                          {actions.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {actions.map((action) => (
+                                <button
+                                  key={action.next}
+                                  type="button"
+                                  onClick={() => handleStatusChange(appointment.id, action.next)}
+                                  className="rounded border border-stone-300 px-1.5 py-0.5 text-stone-600 hover:border-rose-400 hover:text-rose-600 dark:border-stone-700 dark:text-stone-400 dark:hover:text-rose-400"
+                                >
+                                  {action.label}
+                                </button>
+                              ))}
                             </div>
                           )}
                         </div>

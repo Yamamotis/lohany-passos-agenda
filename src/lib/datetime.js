@@ -1,4 +1,5 @@
-// Funções de data/hora usadas pela lógica de agendamento.
+// Funções de data/hora usadas pela interface (o cálculo de disponibilidade
+// em si roda no banco — ver src/lib/api/appointments.js).
 // Trabalham sempre no fuso horário local do navegador (evitam o
 // deslocamento de dia que `new Date(string)` costuma causar com datas puras).
 
@@ -16,8 +17,8 @@ export function combineDateTime(date, time) {
   return result
 }
 
-// Quantas horas faltam (pode ser negativo, se já passou) entre agora e o
+// Quantos minutos faltam (pode ser negativo, se já passou) entre agora e o
 // horário informado. Usado para aplicar a regra de prazo mínimo de cancelamento.
-export function hoursUntil(date, time, now = new Date()) {
-  return (combineDateTime(date, time).getTime() - now.getTime()) / (1000 * 60 * 60)
+export function minutesUntil(date, time, now = new Date()) {
+  return (combineDateTime(date, time).getTime() - now.getTime()) / (1000 * 60)
 }

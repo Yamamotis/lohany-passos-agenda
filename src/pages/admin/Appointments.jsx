@@ -1,9 +1,11 @@
 // Gestão de todos os agendamentos: filtros por profissional/status, criação
-// manual (cliente cadastrado ou avulso) e edição/reatribuição de um
-// agendamento existente (outro profissional, serviço, data ou horário).
+// manual (sempre para um cliente já cadastrado — o banco exige uma conta
+// por trás de todo agendamento) e edição/reatribuição de um agendamento
+// existente (outro profissional, serviço, data ou horário).
 import { useEffect, useMemo, useState } from 'react'
 import {
   createAppointment,
+  getAvailableSlots,
   listAppointments,
   updateAppointment,
   updateAppointmentStatus,
@@ -11,30 +13,28 @@ import {
 import { listServices } from '../../lib/api/services'
 import { listProfessionals } from '../../lib/api/professionals'
 import { listUsersByRole } from '../../lib/api/users'
-import { getAvailableSlots } from '../../lib/slots'
 import { useToast } from '../../context/ToastContext'
-import { Badge, Button, Card, Field, Input, Select } from '../../components/ui'
+import { Badge, Button, Card, Field, Select } from '../../components/ui'
 
 const STATUS_LABEL = {
-  scheduled: { label: 'Agendado', tone: 'green' },
-  completed: { label: 'Concluído', tone: 'stone' },
-  cancelled: { label: 'Cancelado', tone: 'red' },
-  no_show: { label: 'Não compareceu', tone: 'amber' },
+  AGENDADO: { label: 'Agendado', tone: 'green' },
+  CONFIRMADO: { label: 'Confirmado', tone: 'green' },
+  EM_ATENDIMENTO: { label: 'Em atendimento', tone: 'amber' },
+  CONCLUIDO: { label: 'Concluído', tone: 'stone' },
+  CANCELADO_CLIENTE: { label: 'Cancelado pelo cliente', tone: 'red' },
+  CANCELADO_PROFISSIONAL: { label: 'Cancelado pelo salão', tone: 'red' },
+  NAO_COMPARECEU: { label: 'Não compareceu', tone: 'amber' },
 }
+
+// Agendamentos que ainda podem ser editados/cancelados pelo admin.
+const ACTIVE_STATUSES = ['AGENDADO', 'CONFIRMADO', 'EM_ATENDIMENTO']
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
 function emptyForm() {
-  return {
-    clientMode: 'existing', // 'existing' (cliente cadastrado) | 'walkin' (sem conta, só o nome)
-    clientId: '',
-    clientName: '',
-    serviceId: '',
-    professionalId: '',
-    date: todayISO(),
-  }
+  return { clientUserId: '', serviceId: '', professionalId: '', date: todayISO() }
 }
 
 export default function Appointments() {
@@ -48,8 +48,10 @@ export default function Appointments() {
 
   // editingId: null (formulário fechado) | 'new' (criando) | id do agendamento em edição.
   const [editingId, setEditingId] = useState(null)
+  const [editingAppointment, setEditingAppointment] = useState(null)
   const [form, setForm] = useState(emptyForm())
   const [slot, setSlot] = useState(null)
+  const [availableSlots, setAvailableSlots] = useState([])
   const [saving, setSaving] = useState(false)
 
   async function load() {
@@ -75,38 +77,33 @@ export default function Appointments() {
     [professionals, form.serviceId],
   )
 
-  const selectedService = useMemo(() => services.find((s) => s.id === form.serviceId), [services, form.serviceId])
-  const selectedProfessional = useMemo(
-    () => professionals.find((p) => p.id === form.professionalId),
-    [professionals, form.professionalId],
-  )
-
   // Horários livres do profissional escolhido, excluindo o próprio agendamento
   // quando estamos editando (senão ele bloquearia o próprio horário atual).
-  const availableSlots = useMemo(() => {
-    if (!selectedProfessional || !selectedService || !form.date) return []
-    const existing = appointments.filter((a) => a.professionalId === selectedProfessional.id)
-    return getAvailableSlots({
-      professional: selectedProfessional,
-      durationMinutes: selectedService.durationMinutes,
+  useEffect(() => {
+    setSlot(null)
+    setAvailableSlots([])
+    if (!form.professionalId || !form.serviceId || !form.date) return
+
+    getAvailableSlots({
+      professionalId: form.professionalId,
+      serviceId: form.serviceId,
       date: form.date,
-      existingAppointments: existing,
       excludeAppointmentId: editingId === 'new' ? null : editingId,
-    })
-  }, [selectedProfessional, selectedService, form.date, appointments, editingId])
+    }).then(setAvailableSlots)
+  }, [form.professionalId, form.serviceId, form.date, editingId])
 
   function startCreate() {
     setEditingId('new')
+    setEditingAppointment(null)
     setForm(emptyForm())
     setSlot(null)
   }
 
   function startEdit(appointment) {
     setEditingId(appointment.id)
+    setEditingAppointment(appointment)
     setForm({
-      clientMode: appointment.clientId ? 'existing' : 'walkin',
-      clientId: appointment.clientId ?? '',
-      clientName: appointment.clientName,
+      clientUserId: '',
       serviceId: appointment.serviceId,
       professionalId: appointment.professionalId,
       date: appointment.date,
@@ -116,6 +113,7 @@ export default function Appointments() {
 
   function cancelEdit() {
     setEditingId(null)
+    setEditingAppointment(null)
     setForm(emptyForm())
     setSlot(null)
   }
@@ -123,7 +121,6 @@ export default function Appointments() {
   // Qualquer mudança relevante do formulário invalida o horário já escolhido.
   function updateForm(patch) {
     setForm((prev) => ({ ...prev, ...patch }))
-    setSlot(null)
   }
 
   async function handleSubmit(event) {
@@ -131,37 +128,42 @@ export default function Appointments() {
     if (!slot) return
     setSaving(true)
     try {
-      const clientName =
-        form.clientMode === 'existing' ? clients.find((c) => c.id === form.clientId)?.name ?? '' : form.clientName
-
-      const payload = {
-        clientId: form.clientMode === 'existing' ? form.clientId : null,
-        clientName,
-        serviceId: form.serviceId,
-        professionalId: form.professionalId,
-        date: form.date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-      }
-
       if (editingId === 'new') {
-        await createAppointment(payload)
+        await createAppointment({
+          clientUserId: form.clientUserId,
+          professionalId: form.professionalId,
+          serviceId: form.serviceId,
+          date: form.date,
+          startTime: slot.startTime,
+        })
         showToast('Agendamento criado.')
       } else {
-        await updateAppointment(editingId, payload)
+        await updateAppointment(editingId, {
+          serviceId: form.serviceId,
+          professionalId: form.professionalId,
+          date: form.date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        })
         showToast('Agendamento atualizado.')
       }
       cancelEdit()
       load()
+    } catch (err) {
+      showToast(err.message, 'error')
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleStatusChange(id, status) {
-    await updateAppointmentStatus(id, status)
-    showToast('Agendamento cancelado.')
-    load()
+  async function handleCancel(id) {
+    try {
+      await updateAppointmentStatus(id, 'CANCELADO_PROFISSIONAL')
+      showToast('Agendamento cancelado.')
+      load()
+    } catch (err) {
+      showToast(err.message, 'error')
+    }
   }
 
   function serviceName(id) {
@@ -182,43 +184,21 @@ export default function Appointments() {
     [appointments, professionalFilter, statusFilter],
   )
 
-  const canSubmit =
-    slot &&
-    form.serviceId &&
-    form.professionalId &&
-    (form.clientMode === 'existing' ? form.clientId : form.clientName.trim())
+  const canSubmit = slot && form.serviceId && form.professionalId && (editingId !== 'new' || form.clientUserId)
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-stone-900">Agendamentos</h1>
+        <h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100">Agendamentos</h1>
         {editingId === null && <Button onClick={startCreate}>Novo agendamento</Button>}
       </div>
 
       {editingId !== null && (
         <Card className="mb-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Field label="Cliente">
-              <div className="mb-2 flex gap-4 text-sm">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={form.clientMode === 'existing'}
-                    onChange={() => updateForm({ clientMode: 'existing' })}
-                  />
-                  Cliente cadastrado
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={form.clientMode === 'walkin'}
-                    onChange={() => updateForm({ clientMode: 'walkin' })}
-                  />
-                  Sem cadastro (avulso)
-                </label>
-              </div>
-              {form.clientMode === 'existing' ? (
-                <Select value={form.clientId} onChange={(e) => updateForm({ clientId: e.target.value })}>
+            {editingId === 'new' ? (
+              <Field label="Cliente">
+                <Select value={form.clientUserId} onChange={(e) => updateForm({ clientUserId: e.target.value })}>
                   <option value="">Selecione o cliente</option>
                   {clients.map((client) => (
                     <option key={client.id} value={client.id}>
@@ -226,14 +206,15 @@ export default function Appointments() {
                     </option>
                   ))}
                 </Select>
-              ) : (
-                <Input
-                  placeholder="Nome do cliente"
-                  value={form.clientName}
-                  onChange={(e) => setForm((prev) => ({ ...prev, clientName: e.target.value }))}
-                />
-              )}
-            </Field>
+                <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+                  Só é possível agendar para quem já tem conta cadastrada.
+                </p>
+              </Field>
+            ) : (
+              <Field label="Cliente">
+                <p className="text-sm text-stone-700 dark:text-stone-300">{editingAppointment?.clientName}</p>
+              </Field>
+            )}
 
             <Field label="Serviço">
               <Select
@@ -268,7 +249,7 @@ export default function Appointments() {
                   type="date"
                   value={form.date}
                   onChange={(e) => updateForm({ date: e.target.value })}
-                  className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                  className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100"
                 />
               </Field>
             )}
@@ -276,7 +257,7 @@ export default function Appointments() {
             {form.professionalId && (
               <Field label="Horário">
                 {availableSlots.length === 0 ? (
-                  <p className="text-sm text-stone-500">Nenhum horário disponível neste dia.</p>
+                  <p className="text-sm text-stone-500 dark:text-stone-400">Nenhum horário disponível neste dia.</p>
                 ) : (
                   <div className="grid grid-cols-6 gap-2">
                     {availableSlots.map((s) => (
@@ -287,7 +268,7 @@ export default function Appointments() {
                         className={`rounded-lg border px-2 py-1 text-sm ${
                           slot?.startTime === s.startTime
                             ? 'border-rose-600 bg-rose-600 text-white'
-                            : 'border-stone-300 text-stone-700 hover:border-rose-400'
+                            : 'border-stone-300 text-stone-700 hover:border-rose-400 dark:border-stone-700 dark:text-stone-300'
                         }`}
                       >
                         {s.startTime}
@@ -334,28 +315,29 @@ export default function Appointments() {
       </Card>
 
       {filtered.length === 0 ? (
-        <p className="text-stone-500">Nenhum agendamento encontrado.</p>
+        <p className="text-stone-500 dark:text-stone-400">Nenhum agendamento encontrado.</p>
       ) : (
         <div className="space-y-3">
           {filtered.map((appointment) => {
             const status = STATUS_LABEL[appointment.status]
+            const active = ACTIVE_STATUSES.includes(appointment.status)
             return (
               <Card key={appointment.id} className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="font-medium text-stone-900">{appointment.clientName}</p>
-                  <p className="text-sm text-stone-500">
+                  <p className="font-medium text-stone-900 dark:text-stone-100">{appointment.clientName}</p>
+                  <p className="text-sm text-stone-500 dark:text-stone-400">
                     {serviceName(appointment.serviceId)} · {professionalName(appointment.professionalId)} ·{' '}
                     {appointment.date} às {appointment.startTime}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge tone={status?.tone}>{status?.label}</Badge>
-                  {appointment.status === 'scheduled' && (
+                  {active && (
                     <>
                       <Button variant="secondary" onClick={() => startEdit(appointment)}>
                         Editar
                       </Button>
-                      <Button variant="danger" onClick={() => handleStatusChange(appointment.id, 'cancelled')}>
+                      <Button variant="danger" onClick={() => handleCancel(appointment.id)}>
                         Cancelar
                       </Button>
                     </>

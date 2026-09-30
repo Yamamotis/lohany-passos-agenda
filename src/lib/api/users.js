@@ -1,8 +1,11 @@
-// Consultas a usuários que não se encaixam em auth.js (ex: listar clientes
-// cadastrados para o admin escolher ao criar um agendamento manual).
-import { storage } from '../storage'
+// Consultas a usuários que não se encaixam em auth.js — hoje, só listar
+// clientes cadastrados (usado pelo admin: escolher um cliente ao promovê-lo
+// a profissional, ou ao criar um agendamento manual).
+import { supabase } from '../supabaseClient'
 
 export async function listUsersByRole(role) {
-  const users = await storage.getAll('users')
-  return users.filter((u) => u.role === role).map(({ password: _password, ...rest }) => rest)
+  const tipo = { admin: 'ADMIN', professional: 'PROFISSIONAL', client: 'CLIENTE' }[role]
+  const { data, error } = await supabase.from('usuarios').select('id, nome, email, telefone').eq('tipo_usuario', tipo)
+  if (error) throw error
+  return data.map((row) => ({ id: row.id, name: row.nome, email: row.email, phone: row.telefone }))
 }

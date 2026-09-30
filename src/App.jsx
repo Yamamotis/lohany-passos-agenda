@@ -1,28 +1,25 @@
-// Ponto de entrada do app: monta os provedores globais (roteamento,
-// notificações, autenticação) em volta da estrutura visual (AppShell) e
-// popula os dados de demonstração na primeira execução.
-import { useEffect } from 'react'
+// Ponto de entrada do app: monta os provedores globais (tema, roteamento,
+// notificações, autenticação) em volta da estrutura visual (AppShell). Os
+// dados agora vêm do Supabase — não há mais seed local.
 import { BrowserRouter } from 'react-router-dom'
+import { ThemeProvider } from './context/ThemeContext'
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
-import { seedDatabase } from './lib/seed'
 import AppShell from './components/AppShell'
 import ErrorBoundary from './components/ErrorBoundary'
 
 export default function App() {
-  useEffect(() => {
-    seedDatabase()
-  }, [])
-
   return (
     <ErrorBoundary>
-      <BrowserRouter>
-        <ToastProvider>
-          <AuthProvider>
-            <AppShell />
-          </AuthProvider>
-        </ToastProvider>
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <ToastProvider>
+            <AuthProvider>
+              <AppShell />
+            </AuthProvider>
+          </ToastProvider>
+        </BrowserRouter>
+      </ThemeProvider>
     </ErrorBoundary>
   )
 }

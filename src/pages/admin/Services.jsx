@@ -1,22 +1,25 @@
 // CRUD de serviços do salão, com proteção contra exclusão de um serviço
 // que ainda tenha agendamentos ativos vinculados.
 import { useEffect, useState } from 'react'
-import { createService, deleteService, listServices, updateService } from '../../lib/api/services'
+import { createService, deleteService, listServiceCategories, listServices, updateService } from '../../lib/api/services'
 import { hasScheduledAppointmentsForService } from '../../lib/api/appointments'
 import { useToast } from '../../context/ToastContext'
-import { Badge, Button, Card, Field, Input } from '../../components/ui'
+import { Badge, Button, Card, Field, Input, Select } from '../../components/ui'
 
-const EMPTY_FORM = { name: '', durationMinutes: '', price: '' }
+const EMPTY_FORM = { name: '', durationMinutes: '', price: '', categoryId: '' }
 
 export default function Services() {
   const { showToast } = useToast()
   const [services, setServices] = useState([])
+  const [categories, setCategories] = useState([])
   // editingId: null (nenhum formulário aberto) | 'new' (criando) | id do serviço em edição.
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
 
   async function load() {
-    setServices(await listServices())
+    const [servicesData, categoriesData] = await Promise.all([listServices(), listServiceCategories()])
+    setServices(servicesData)
+    setCategories(categoriesData)
   }
 
   useEffect(() => {
@@ -25,12 +28,17 @@ export default function Services() {
 
   function startCreate() {
     setEditingId('new')
-    setForm(EMPTY_FORM)
+    setForm({ ...EMPTY_FORM, categoryId: categories[0]?.id ?? '' })
   }
 
   function startEdit(service) {
     setEditingId(service.id)
-    setForm({ name: service.name, durationMinutes: service.durationMinutes, price: service.price })
+    setForm({
+      name: service.name,
+      durationMinutes: service.durationMinutes,
+      price: service.price,
+      categoryId: service.categoryId,
+    })
   }
 
   function cancelEdit() {
@@ -44,6 +52,7 @@ export default function Services() {
       name: form.name,
       durationMinutes: Number(form.durationMinutes),
       price: Number(form.price),
+      categoryId: form.categoryId,
     }
     if (editingId === 'new') {
       await createService(payload)
@@ -73,18 +82,32 @@ export default function Services() {
     load()
   }
 
+  function categoryName(id) {
+    return categories.find((c) => c.id === id)?.name ?? '—'
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-stone-900">Serviços</h1>
+        <h1 className="text-2xl font-semibold text-stone-900 dark:text-stone-100">Serviços</h1>
         {editingId === null && <Button onClick={startCreate}>Novo serviço</Button>}
       </div>
 
       {editingId !== null && (
         <Card className="mb-6">
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Nome">
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </Field>
+            <Field label="Categoria">
+              <Select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} required>
+                <option value="">Selecione</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="Duração (min)">
               <Input
@@ -120,9 +143,9 @@ export default function Services() {
         {services.map((service) => (
           <Card key={service.id} className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-stone-900">{service.name}</p>
-              <p className="text-sm text-stone-500">
-                {service.durationMinutes}min · R$ {service.price}
+              <p className="font-medium text-stone-900 dark:text-stone-100">{service.name}</p>
+              <p className="text-sm text-stone-500 dark:text-stone-400">
+                {categoryName(service.categoryId)} · {service.durationMinutes}min · R$ {service.price}
               </p>
             </div>
             <div className="flex items-center gap-2">

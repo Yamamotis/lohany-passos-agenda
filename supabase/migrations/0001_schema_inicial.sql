@@ -1,0 +1,15 @@
+-- Placeholder de histórico: esta migration já foi aplicada diretamente no
+-- projeto remoto (fora deste checkout) antes de conectarmos o CLI aqui.
+-- O texto SQL original não estava disponível localmente para reconstituir
+-- com exatidão, então este arquivo só existe para o `supabase db push`
+-- reconhecer a versão "0001" como já aplicada e não tentar reaplicá-la.
+--
+-- Resumo do que essa migration criou (via introspecção do banco remoto):
+-- tabelas usuarios, clientes, profissionais, categorias_servicos, servicos,
+-- profissional_servicos, horarios_profissionais, intervalos_profissionais,
+-- bloqueios_agenda, agendamentos, configuracoes, auditoria; RLS e policies
+-- em todas; funções is_admin/is_cliente_dono/is_profissional_dono,
+-- obter_horarios_disponiveis, criar_agendamento, validar_transicao_agendamento,
+-- atualizar_atualizado_em; extensão btree_gist e o índice de exclusão
+-- (profissional_id, periodo) em agendamentos.
+select 1;

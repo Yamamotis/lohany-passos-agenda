@@ -19,6 +19,9 @@ function formatCurrency(value) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+const ACTIVE_STATUSES = ['AGENDADO', 'CONFIRMADO', 'EM_ATENDIMENTO']
+const CANCELLED_STATUSES = ['CANCELADO_CLIENTE', 'CANCELADO_PROFISSIONAL']
+
 export default function Dashboard() {
   const [appointments, setAppointments] = useState([])
   const [services, setServices] = useState([])
@@ -37,26 +40,26 @@ export default function Dashboard() {
   const stats = useMemo(() => {
     const today = todayISO()
     return {
-      today: appointments.filter((a) => a.date === today && a.status !== 'cancelled').length,
-      scheduled: appointments.filter((a) => a.status === 'scheduled').length,
+      today: appointments.filter((a) => a.date === today && !CANCELLED_STATUSES.includes(a.status)).length,
+      scheduled: appointments.filter((a) => ACTIVE_STATUSES.includes(a.status)).length,
       services: services.length,
       professionals: professionals.length,
     }
   }, [appointments, services, professionals])
 
-  // Soma o preço dos serviços dos atendimentos concluídos no mês atual.
+  // Soma o valor (já registrado no agendamento) dos atendimentos concluídos no mês atual.
   const monthlyRevenue = useMemo(() => {
     const monthKey = currentMonthKey()
     return appointments
-      .filter((a) => a.status === 'completed' && a.date.startsWith(monthKey))
-      .reduce((sum, a) => sum + (services.find((s) => s.id === a.serviceId)?.price ?? 0), 0)
-  }, [appointments, services])
+      .filter((a) => a.status === 'CONCLUIDO' && a.date.startsWith(monthKey))
+      .reduce((sum, a) => sum + a.price, 0)
+  }, [appointments])
 
   // Serviço com mais agendamentos (contando qualquer status, exceto cancelado).
   const topService = useMemo(() => {
     const counts = new Map()
     appointments
-      .filter((a) => a.status !== 'cancelled')
+      .filter((a) => !CANCELLED_STATUSES.includes(a.status))
       .forEach((a) => counts.set(a.serviceId, (counts.get(a.serviceId) ?? 0) + 1))
     let best = null
     for (const [serviceId, count] of counts) {
@@ -71,9 +74,9 @@ export default function Dashboard() {
     return professionals
       .map((professional) => {
         const relevant = appointments.filter(
-          (a) => a.professionalId === professional.id && (a.status === 'completed' || a.status === 'no_show'),
+          (a) => a.professionalId === professional.id && (a.status === 'CONCLUIDO' || a.status === 'NAO_COMPARECEU'),
         )
-        const noShows = relevant.filter((a) => a.status === 'no_show').length
+        const noShows = relevant.filter((a) => a.status === 'NAO_COMPARECEU').length
         const rate = relevant.length > 0 ? Math.round((noShows / relevant.length) * 100) : null
         return { name: professional.name, noShows, total: relevant.length, rate }
       })
@@ -89,37 +92,41 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
-      <h1 className="mb-6 text-2xl font-semibold text-stone-900">Painel</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-stone-900 dark:text-stone-100">Painel</h1>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {cards.map((card) => (
           <Card key={card.label}>
-            <p className="text-sm text-stone-500">{card.label}</p>
-            <p className="mt-1 text-3xl font-semibold text-stone-900">{card.value}</p>
+            <p className="text-sm text-stone-500 dark:text-stone-400">{card.label}</p>
+            <p className="mt-1 text-3xl font-semibold text-stone-900 dark:text-stone-100">{card.value}</p>
           </Card>
         ))}
       </div>
 
-      <h2 className="mb-4 mt-10 text-lg font-semibold text-stone-900">Visão do negócio</h2>
+      <h2 className="mb-4 mt-10 text-lg font-semibold text-stone-900 dark:text-stone-100">Visão do negócio</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
-          <p className="text-sm text-stone-500">Faturamento do mês (atendimentos concluídos)</p>
-          <p className="mt-1 text-2xl font-semibold text-stone-900">{formatCurrency(monthlyRevenue)}</p>
+          <p className="text-sm text-stone-500 dark:text-stone-400">Faturamento do mês (atendimentos concluídos)</p>
+          <p className="mt-1 text-2xl font-semibold text-stone-900 dark:text-stone-100">
+            {formatCurrency(monthlyRevenue)}
+          </p>
         </Card>
         <Card>
-          <p className="text-sm text-stone-500">Serviço mais procurado</p>
-          <p className="mt-1 text-2xl font-semibold text-stone-900">{topService?.name ?? '—'}</p>
-          {topService && <p className="text-sm text-stone-500">{topService.count} agendamento(s)</p>}
+          <p className="text-sm text-stone-500 dark:text-stone-400">Serviço mais procurado</p>
+          <p className="mt-1 text-2xl font-semibold text-stone-900 dark:text-stone-100">{topService?.name ?? '—'}</p>
+          {topService && (
+            <p className="text-sm text-stone-500 dark:text-stone-400">{topService.count} agendamento(s)</p>
+          )}
         </Card>
       </div>
 
       {noShowByProfessional.length > 0 && (
         <Card className="mt-4">
-          <p className="mb-3 text-sm font-medium text-stone-900">Taxa de falta por profissional</p>
+          <p className="mb-3 text-sm font-medium text-stone-900 dark:text-stone-100">Taxa de falta por profissional</p>
           <div className="space-y-2">
             {noShowByProfessional.map((row) => (
               <div key={row.name} className="flex items-center justify-between text-sm">
-                <span className="text-stone-700">{row.name}</span>
-                <span className="text-stone-500">
+                <span className="text-stone-700 dark:text-stone-300">{row.name}</span>
+                <span className="text-stone-500 dark:text-stone-400">
                   {row.noShows} falta(s) em {row.total} atendimento(s) · {row.rate}%
                 </span>
               </div>

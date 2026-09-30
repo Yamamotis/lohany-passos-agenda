@@ -5,26 +5,30 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import {
+  getAvailableSlots,
   listAppointmentsByClient,
-  listAppointmentsByProfessional,
   updateAppointment,
   updateAppointmentStatus,
 } from '../../lib/api/appointments'
 import { listServices } from '../../lib/api/services'
 import { listProfessionals } from '../../lib/api/professionals'
-import { getAvailableSlots } from '../../lib/slots'
-import { hoursUntil } from '../../lib/datetime'
-import { CANCELLATION_CUTOFF_HOURS } from '../../lib/constants'
+import { minutesUntil } from '../../lib/datetime'
 import { getSalonSettings } from '../../lib/api/settings'
 import { buildWhatsAppLink } from '../../lib/whatsapp'
 import { Badge, Button, Card } from '../../components/ui'
 
 const STATUS_LABEL = {
-  scheduled: { label: 'Agendado', tone: 'green' },
-  completed: { label: 'Concluído', tone: 'stone' },
-  cancelled: { label: 'Cancelado', tone: 'red' },
-  no_show: { label: 'Não compareceu', tone: 'amber' },
+  AGENDADO: { label: 'Agendado', tone: 'green' },
+  CONFIRMADO: { label: 'Confirmado', tone: 'green' },
+  EM_ATENDIMENTO: { label: 'Em atendimento', tone: 'amber' },
+  CONCLUIDO: { label: 'Concluído', tone: 'stone' },
+  CANCELADO_CLIENTE: { label: 'Cancelado por você', tone: 'red' },
+  CANCELADO_PROFISSIONAL: { label: 'Cancelado pelo salão', tone: 'red' },
+  NAO_COMPARECEU: { label: 'Não compareceu', tone: 'amber' },
 }
+
+// Status em que o cliente ainda pode cancelar/remarcar sozinho.
+const MODIFIABLE_STATUSES = ['AGENDADO', 'CONFIRMADO']
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10)
@@ -44,6 +48,7 @@ export default function MyAppointments() {
   const [rescheduleSlot, setRescheduleSlot] = useState(null)
   const [saving, setSaving] = useState(false)
   const [salonPhone, setSalonPhone] = useState('')
+  const [cutoffMinutes, setCutoffMinutes] = useState(0)
 
   async function load() {
     const [appointmentsData, servicesData, professionalsData] = await Promise.all([
@@ -59,7 +64,10 @@ export default function MyAppointments() {
 
   useEffect(() => {
     load()
-    getSalonSettings().then((settings) => setSalonPhone(settings.phone ?? ''))
+    getSalonSettings().then((settings) => {
+      setSalonPhone(settings.phone)
+      setCutoffMinutes(settings.cancellationCutoffMinutes)
+    })
   }, [user.id])
 
   // Recalcula os horários livres da remarcação sempre que a data muda,
@@ -67,35 +75,33 @@ export default function MyAppointments() {
   useEffect(() => {
     if (!reschedulingId) return
     const appointment = appointments.find((a) => a.id === reschedulingId)
-    const professional = professionals.find((p) => p.id === appointment.professionalId)
-    const service = services.find((s) => s.id === appointment.serviceId)
-    if (!professional || !service) return
+    if (!appointment) return
 
     setRescheduleSlot(null)
-    listAppointmentsByProfessional(professional.id).then((existing) => {
-      const available = getAvailableSlots({
-        professional,
-        durationMinutes: service.durationMinutes,
-        date: rescheduleDate,
-        existingAppointments: existing,
-        excludeAppointmentId: appointment.id,
-      })
-      setRescheduleSlots(available)
-    })
+    getAvailableSlots({
+      professionalId: appointment.professionalId,
+      serviceId: appointment.serviceId,
+      date: rescheduleDate,
+      excludeAppointmentId: appointment.id,
+    }).then(setRescheduleSlots)
   }, [reschedulingId, rescheduleDate])
 
   // Cliente só pode mexer sozinho se faltar mais que o prazo mínimo de cancelamento.
   function canModify(appointment) {
     return (
-      appointment.status === 'scheduled' &&
-      hoursUntil(appointment.date, appointment.startTime) >= CANCELLATION_CUTOFF_HOURS
+      MODIFIABLE_STATUSES.includes(appointment.status) &&
+      minutesUntil(appointment.date, appointment.startTime) >= cutoffMinutes
     )
   }
 
   async function handleCancel(id) {
-    await updateAppointmentStatus(id, 'cancelled')
-    showToast('Agendamento cancelado.')
-    load()
+    try {
+      await updateAppointmentStatus(id, 'CANCELADO_CLIENTE')
+      showToast('Agendamento cancelado.')
+      load()
+    } catch (err) {
+      showToast(err.message, 'error')
+    }
   }
 
   function startReschedule(appointment) {
@@ -122,6 +128,8 @@ export default function MyAppointments() {
       showToast('Agendamento remarcado!')
       cancelReschedule()
       load()
+    } catch (err) {
+      showToast(err.message, 'error')
     } finally {
       setSaving(false)
     }
@@ -137,10 +145,10 @@ export default function MyAppointments() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="mb-6 text-2xl font-semibold text-stone-900">Meus agendamentos</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-stone-900 dark:text-stone-100">Meus agendamentos</h1>
 
       {appointments.length === 0 ? (
-        <p className="text-stone-500">Você ainda não tem agendamentos.</p>
+        <p className="text-stone-500 dark:text-stone-400">Você ainda não tem agendamentos.</p>
       ) : (
         <div className="space-y-3">
           {appointments.map((appointment) => {
@@ -151,14 +159,16 @@ export default function MyAppointments() {
               <Card key={appointment.id}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-stone-900">{serviceName(appointment.serviceId)}</p>
-                    <p className="text-sm text-stone-500">
+                    <p className="font-medium text-stone-900 dark:text-stone-100">
+                      {serviceName(appointment.serviceId)}
+                    </p>
+                    <p className="text-sm text-stone-500 dark:text-stone-400">
                       {appointment.date} às {appointment.startTime} · {professionalName(appointment.professionalId)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge tone={status?.tone}>{status?.label}</Badge>
-                    {appointment.status === 'scheduled' && modifiable && (
+                    {modifiable && (
                       <>
                         <Button variant="secondary" onClick={() => startReschedule(appointment)}>
                           Remarcar
@@ -172,10 +182,10 @@ export default function MyAppointments() {
                 </div>
 
                 {/* Fora do prazo: em vez de cancelar/remarcar, oferece contato direto. */}
-                {appointment.status === 'scheduled' && !modifiable && (
+                {MODIFIABLE_STATUSES.includes(appointment.status) && !modifiable && (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <p className="text-xs text-amber-600">
-                      Menos de {CANCELLATION_CUTOFF_HOURS}h para o horário — fale com o salão para alterar.
+                    <p className="text-xs text-amber-600 dark:text-amber-500">
+                      Muito perto do horário — fale com o salão para alterar.
                     </p>
                     {(() => {
                       const link = buildWhatsAppLink(
@@ -195,16 +205,16 @@ export default function MyAppointments() {
 
                 {/* Painel de remarcação, aberto só para o agendamento selecionado. */}
                 {isRescheduling && (
-                  <div className="mt-4 space-y-3 border-t border-stone-200 pt-4">
+                  <div className="mt-4 space-y-3 border-t border-stone-200 pt-4 dark:border-stone-800">
                     <input
                       type="date"
                       min={todayISO()}
                       value={rescheduleDate}
                       onChange={(e) => setRescheduleDate(e.target.value)}
-                      className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                      className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100"
                     />
                     {rescheduleSlots.length === 0 ? (
-                      <p className="text-sm text-stone-500">Nenhum horário disponível neste dia.</p>
+                      <p className="text-sm text-stone-500 dark:text-stone-400">Nenhum horário disponível neste dia.</p>
                     ) : (
                       <div className="grid grid-cols-4 gap-2">
                         {rescheduleSlots.map((slot) => (
@@ -215,7 +225,7 @@ export default function MyAppointments() {
                             className={`rounded-lg border px-2 py-2 text-sm ${
                               rescheduleSlot?.startTime === slot.startTime
                                 ? 'border-rose-600 bg-rose-600 text-white'
-                                : 'border-stone-300 text-stone-700 hover:border-rose-400'
+                                : 'border-stone-300 text-stone-700 hover:border-rose-400 dark:border-stone-700 dark:text-stone-300'
                             }`}
                           >
                             {slot.startTime}

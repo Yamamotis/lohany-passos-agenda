@@ -13,8 +13,8 @@ export default function Profile() {
   const { showToast } = useToast()
   const navigate = useNavigate()
 
-  function handleLogout() {
-    logout()
+  async function handleLogout() {
+    await logout()
     navigate('/')
   }
 
@@ -48,7 +48,7 @@ export default function Profile() {
     }
     setSavingPassword(true)
     try {
-      await changePassword(user.id, currentPassword, newPassword)
+      await changePassword(currentPassword, newPassword)
       showToast('Senha alterada.')
       setCurrentPassword('')
       setNewPassword('')
@@ -62,7 +62,7 @@ export default function Profile() {
 
   return (
     <div className="mx-auto max-w-sm px-4 py-10">
-      <h1 className="mb-6 text-2xl font-semibold text-stone-900">Meu perfil</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-stone-900 dark:text-stone-100">Meu perfil</h1>
 
       <Card className="mb-6">
         <form onSubmit={handleProfileSubmit} className="space-y-4">
@@ -83,7 +83,7 @@ export default function Profile() {
       </Card>
 
       <Card>
-        <h2 className="mb-4 text-sm font-semibold text-stone-900">Trocar senha</h2>
+        <h2 className="mb-4 text-sm font-semibold text-stone-900 dark:text-stone-100">Trocar senha</h2>
         <form onSubmit={handlePasswordSubmit} className="space-y-4">
           <Field label="Senha atual">
             <Input
